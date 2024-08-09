@@ -10,15 +10,17 @@ class Account::Holding < ApplicationRecord
 
   scope :chronological, -> { order(:date) }
   scope :current, -> { where(date: Date.current).order(amount: :desc) }
+  scope :in_period, ->(period) { period.date_range.nil? ? all : where(date: period.date_range) }
+  scope :known_value, -> { where.not(amount: nil) }
   scope :for, ->(security) { where(security_id: security).order(:date) }
 
   delegate :name, to: :security
-  delegate :symbol, to: :security
+  delegate :ticker, to: :security
 
   def weight
     return nil unless amount
 
-    portfolio_value = account.holdings.current.where.not(amount: nil).sum(&:amount)
+    portfolio_value = account.holdings.current.known_value.sum(&:amount)
     portfolio_value.zero? ? 1 : amount / portfolio_value * 100
   end
 
