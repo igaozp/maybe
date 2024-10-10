@@ -7,7 +7,7 @@ end
 
 require_relative "../config/environment"
 
-ENV["SELF_HOSTING_ENABLED"] = "false"
+ENV["SELF_HOSTED"] = "false"
 ENV["UPGRADES_ENABLED"] = "false"
 ENV["RAILS_ENV"] ||= "test"
 
@@ -49,7 +49,7 @@ module ActiveSupport
 
     # Add more helper methods to be used by all tests here...
     def sign_in(user)
-      post session_path, params: { email: user.email, password: "password" }
+      post sessions_path, params: { email: user.email, password: "password" }
     end
 
     def with_env_overrides(overrides = {}, &block)

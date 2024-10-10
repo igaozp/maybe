@@ -1,5 +1,5 @@
 class InstitutionsController < ApplicationController
-  before_action :set_institution, except: %i[ new create ]
+  before_action :set_institution, except: %i[new create]
 
   def new
     @institution = Institution.new
@@ -21,6 +21,11 @@ class InstitutionsController < ApplicationController
   def destroy
     @institution.destroy!
     redirect_to accounts_path, notice: t(".success")
+  end
+
+  def sync
+    @institution.sync
+    redirect_back_or_to accounts_path, notice: t(".success")
   end
 
   private

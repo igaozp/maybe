@@ -2,6 +2,7 @@ module Authentication
   extend ActiveSupport::Concern
 
   included do
+    before_action :set_request_details
     before_action :authenticate_user!
   end
 
@@ -12,28 +13,30 @@ module Authentication
   end
 
   private
-
-  def authenticate_user!
-    if user = User.find_by(id: session[:user_id])
-      Current.user = user
-    else
-      redirect_to new_session_url
+    def authenticate_user!
+      if session_record = Session.find_by_id(cookies.signed[:session_token])
+        Current.session = session_record
+      else
+        if self_hosted_first_login?
+          redirect_to new_registration_url
+        else
+          redirect_to new_session_url
+        end
+      end
     end
-  end
 
-  def login(user)
-    Current.user = user
-    reset_session
-    session[:user_id] = user.id
-    set_last_login_at
-  end
+    def create_session_for(user)
+      session = user.sessions.create!
+      cookies.signed.permanent[:session_token] = { value: session.id, httponly: true }
+      session
+    end
 
-  def logout
-    Current.user = nil
-    reset_session
-  end
+    def self_hosted_first_login?
+      Rails.application.config.app_mode.self_hosted? && User.count.zero?
+    end
 
-  def set_last_login_at
-    Current.user.update(last_login_at: DateTime.now)
-  end
+    def set_request_details
+      Current.user_agent = request.user_agent
+      Current.ip_address = request.ip
+    end
 end

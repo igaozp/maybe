@@ -1,8 +1,8 @@
 module Accountable
   extend ActiveSupport::Concern
 
-  ASSET_TYPES = %w[ Depository Investment Crypto Property Vehicle OtherAsset ]
-  LIABILITY_TYPES = %w[ CreditCard Loan OtherLiability ]
+  ASSET_TYPES = %w[Depository Investment Crypto Property Vehicle OtherAsset]
+  LIABILITY_TYPES = %w[CreditCard Loan OtherLiability]
   TYPES = ASSET_TYPES + LIABILITY_TYPES
 
   def self.from_type(type)
@@ -28,7 +28,7 @@ module Accountable
     if balance_series.empty? && period.date_range.end == Date.current
       TimeSeries.new([ { date: Date.current, value: account.balance_money.exchange_to(currency) } ])
     else
-      TimeSeries.from_collection(balance_series, :balance_money)
+      TimeSeries.from_collection(balance_series, :balance_money, favorable_direction: account.asset? ? "up" : "down")
     end
   rescue Money::ConversionError
     TimeSeries.new([])

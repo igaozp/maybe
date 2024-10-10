@@ -17,6 +17,9 @@ class TransactionsController < ApplicationController
     @entry = Current.family.entries.new(entryable: Account::Transaction.new).tap do |e|
       if params[:account_id]
         e.account = Current.family.accounts.find(params[:account_id])
+        e.currency = e.account.currency
+      else
+        e.currency = Current.family.currency
       end
     end
   end
@@ -67,9 +70,6 @@ class TransactionsController < ApplicationController
     redirect_back_or_to transactions_url, notice: t(".success")
   end
 
-  def rules
-  end
-
   private
 
     def amount
@@ -93,7 +93,8 @@ class TransactionsController < ApplicationController
     end
 
     def search_params
-      params.fetch(:q, {}).permit(:start_date, :end_date, :search, accounts: [], account_ids: [], categories: [], merchants: [])
+      params.fetch(:q, {})
+            .permit(:start_date, :end_date, :search, :amount, :amount_operator, accounts: [], account_ids: [], categories: [], merchants: [], types: [], tags: [])
     end
 
     def transaction_entry_params

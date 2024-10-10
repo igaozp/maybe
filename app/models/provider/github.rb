@@ -16,11 +16,11 @@ class Provider::Github
         latest_commit = Octokit.branch(repo, branch)
 
         release_info = if latest_release
-                        {
-                          version: latest_version,
-                          url: latest_release.html_url,
-                          commit_sha: Octokit.commit(repo, latest_release.tag_name).sha
-                        }
+          {
+            version: latest_version,
+            url: latest_release.html_url,
+            commit_sha: Octokit.commit(repo, latest_release.tag_name).sha
+          }
         end
 
         commit_info = {
@@ -40,23 +40,26 @@ class Provider::Github
     end
   end
 
-  def fetch_latest_releases_notes
+  def fetch_latest_release_notes
     begin
-      Rails.cache.fetch("latest_github_releases_notes", expires_in: 2.hours) do
-        releases = Octokit.releases(repo)
-        releases.map do |release|
+      Rails.cache.fetch("latest_github_release_notes", expires_in: 2.hours) do
+        release = Octokit.releases(repo).first
+        if release
           {
             avatar: release.author.avatar_url,
+            # this is the username, it would be nice to get the full name
+            username: release.author.login,
             name: release.name,
             published_at: release.published_at,
             body: Octokit.markdown(release.body, mode: "gfm", context: repo)
           }
+        else
+          nil
         end
       end
-
     rescue => e
-      Rails.logger.error "Failed to fetch latest GitHub releases notes: #{e.message}"
-      []
+      Rails.logger.error "Failed to fetch latest GitHub release notes: #{e.message}"
+      nil
     end
   end
 

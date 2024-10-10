@@ -1,9 +1,6 @@
 class Account::Holding::Syncer
-  attr_reader :warnings
-
   def initialize(account, start_date: nil)
     @account = account
-    @warnings = []
     @sync_date_range = calculate_sync_start_date(start_date)..Date.current
     @portfolio = {}
 
@@ -51,7 +48,9 @@ class Account::Holding::Syncer
                              end
 
                              ticker_start_dates.each do |ticker, date|
-                               prices[ticker] = Security::Price.find_prices(ticker: ticker, start_date: date, end_date: Date.current)
+                               fetched_prices = Security::Price.find_prices(ticker: ticker, start_date: date, end_date: Date.current)
+                               gapfilled_prices = Gapfiller.new(fetched_prices, start_date: date, end_date: Date.current, cache: false).run
+                               prices[ticker] = gapfilled_prices
                              end
 
                              prices
@@ -68,6 +67,8 @@ class Account::Holding::Syncer
         trade_price = trade&.account_trade&.price
 
         price = get_cached_price(ticker, date) || trade_price
+
+        account.observe_missing_price(ticker:, date:) unless price
 
         account.holdings.build \
           date: date,

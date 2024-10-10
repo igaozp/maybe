@@ -18,14 +18,14 @@
           </div>
         <% end %>
 
+        <%= render "sync_all_button" %>
+
         <%= link_to new_account_path,
                     data: { turbo_frame: "modal" },
-                    class: "rounded-lg bg-gray-900 text-white flex items-center gap-1 justify-center hover:bg-gray-700 px-3 py-2" do %>
+                    class: "btn btn--primary flex items-center gap-1" do %>
           <%= lucide_icon("plus", class: "w-5 h-5") %>
           <p class="text-sm font-medium"><%= t(".new_account") %></p>
         <% end %>
-
-        <%= render "sync_all_button" %>
       </div>
     </div>
   </header>
@@ -38,16 +38,11 @@
         <%= render "institution_accounts", institution: %>
       <% end %>
 
-      <%= render "institutionless_accounts", accounts: @accounts %>
+      <% if @accounts.any? %>
+        <%= render "institutionless_accounts", accounts: @accounts %>
+      <% end %>
     </div>
   <% end %>
 
-  <div class="flex justify-between gap-4">
-    <% if self_hosted? %>
-      <%= previous_setting("Self-Hosting", settings_hosting_path) %>
-    <% else %>
-      <%= previous_setting("Billing", settings_billing_path) %>
-    <% end %>
-    <%= next_setting("Tags", tags_path) %>
-  </div>
+  <%= settings_nav_footer %>
 </div>

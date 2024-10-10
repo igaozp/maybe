@@ -2,9 +2,11 @@ class User < ApplicationRecord
   has_secure_password
 
   belongs_to :family
+  has_many :sessions, dependent: :destroy
   accepts_nested_attributes_for :family
 
   validates :email, presence: true, uniqueness: true
+  validate :ensure_valid_profile_image
   normalizes :email, with: ->(email) { email.strip.downcase }
 
   normalizes :first_name, :last_name, with: ->(value) { value.strip.presence }
@@ -12,7 +14,7 @@ class User < ApplicationRecord
   enum :role, { member: "member", admin: "admin" }, validate: true
 
   has_one_attached :profile_image do |attachable|
-    attachable.variant :thumbnail, resize_to_limit: [ 150, 150 ], preprocessed: true
+    attachable.variant :thumbnail, resize_to_fill: [ 300, 300 ]
   end
 
   validate :profile_image_size
@@ -55,7 +57,6 @@ class User < ApplicationRecord
 
   def can_deactivate
     if admin? && family.users.count > 1
-      # i18n-tasks-use t('activerecord.errors.models.user.attributes.base.cannot_deactivate_admin_with_other_users')
       errors.add(:base, :cannot_deactivate_admin_with_other_users)
     end
   end
@@ -73,19 +74,26 @@ class User < ApplicationRecord
   end
 
   private
+    def ensure_valid_profile_image
+      return unless profile_image.attached?
 
-  def last_user_in_family?
-    family.users.count == 1
-  end
-
-  def deactivated_email
-    email.gsub(/@/, "-deactivated-#{SecureRandom.uuid}@")
-  end
-
-  def profile_image_size
-    if profile_image.attached? && profile_image.byte_size > 5.megabytes
-      # i18n-tasks-use t('activerecord.errors.models.user.attributes.profile_image.invalid_file_size')
-      errors.add(:profile_image, :invalid_file_size, max_megabytes: 5)
+      unless profile_image.content_type.in?(%w[image/jpeg image/png])
+        errors.add(:profile_image, "must be a JPEG or PNG")
+        profile_image.purge
+      end
     end
-  end
+
+    def last_user_in_family?
+      family.users.count == 1
+    end
+
+    def deactivated_email
+      email.gsub(/@/, "-deactivated-#{SecureRandom.uuid}@")
+    end
+
+    def profile_image_size
+      if profile_image.attached? && profile_image.byte_size > 5.megabytes
+        errors.add(:profile_image, :invalid_file_size, max_megabytes: 5)
+      end
+    end
 end

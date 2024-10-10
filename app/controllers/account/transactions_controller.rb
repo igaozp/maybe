@@ -5,12 +5,14 @@ class Account::TransactionsController < ApplicationController
   before_action :set_entry, only: :update
 
   def index
-    @entries = @account.entries.account_transactions.reverse_chronological
+    @pagy, @entries = pagy(
+      @account.entries.account_transactions.reverse_chronological,
+      limit: params[:per_page] || "10"
+    )
   end
 
   def update
-    @entry.update!(entry_params.merge(amount: amount))
-    @entry.sync_account_later
+    @entry.update!(entry_params)
 
     respond_to do |format|
       format.html { redirect_to account_entry_path(@account, @entry), notice: t(".success") }
@@ -31,23 +33,25 @@ class Account::TransactionsController < ApplicationController
     def entry_params
       params.require(:account_entry)
             .permit(
-              :name, :date, :amount, :currency, :entryable_type,
+              :name, :date, :amount, :currency, :excluded, :notes, :entryable_type, :nature,
               entryable_attributes: [
                 :id,
-                :notes,
-                :excluded,
                 :category_id,
                 :merchant_id,
                 { tag_ids: [] }
               ]
-            )
-    end
+            ).tap do |permitted_params|
+              nature = permitted_params.delete(:nature)
 
-    def amount
-      if params[:account_entry][:nature] == "income"
-        entry_params[:amount].to_d * -1
-      else
-        entry_params[:amount].to_d
-      end
+              if permitted_params[:amount]
+                amount_value = permitted_params[:amount].to_d
+
+                if nature == "income"
+                  amount_value *= -1
+                end
+
+                permitted_params[:amount] = amount_value
+              end
+            end
     end
 end

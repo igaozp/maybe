@@ -5,6 +5,7 @@ class Account::Entry < ApplicationRecord
 
   belongs_to :account
   belongs_to :transfer, optional: true
+  belongs_to :import, optional: true
 
   delegated_type :entryable, types: Account::Entryable::TYPES, dependent: :destroy
   accepts_nested_attributes_for :entryable
@@ -12,7 +13,6 @@ class Account::Entry < ApplicationRecord
   validates :date, :amount, :currency, presence: true
   validates :date, uniqueness: { scope: [ :account_id, :entryable_type ] }, if: -> { account_valuation? }
   validates :date, comparison: { greater_than: -> { min_supported_date } }
-  validate :trade_valid?, if: -> { account_trade? }
 
   scope :chronological, -> { order(:date, :created_at) }
   scope :reverse_chronological, -> { order(date: :desc, created_at: :desc) }
@@ -109,8 +109,8 @@ class Account::Entry < ApplicationRecord
     def bulk_update!(bulk_update_params)
       bulk_attributes = {
         date: bulk_update_params[:date],
+        notes: bulk_update_params[:notes],
         entryable_attributes: {
-          notes: bulk_update_params[:notes],
           category_id: bulk_update_params[:category_id],
           merchant_id: bulk_update_params[:merchant_id]
         }.compact_blank
@@ -129,17 +129,21 @@ class Account::Entry < ApplicationRecord
     end
 
     def income_total(currency = "USD")
-      without_transfers.account_transactions.includes(:entryable)
+      total = without_transfers.account_transactions.includes(:entryable)
         .where("account_entries.amount <= 0")
                        .map { |e| e.amount_money.exchange_to(currency, date: e.date, fallback_rate: 0) }
                        .sum
+
+      Money.new(total, currency)
     end
 
     def expense_total(currency = "USD")
-      without_transfers.account_transactions.includes(:entryable)
+      total = without_transfers.account_transactions.includes(:entryable)
                        .where("account_entries.amount > 0")
                        .map { |e| e.amount_money.exchange_to(currency, date: e.date, fallback_rate: 0) }
                        .sum
+
+      Money.new(total, currency)
     end
 
     def search(params)
@@ -147,6 +151,27 @@ class Account::Entry < ApplicationRecord
       query = query.where("account_entries.name ILIKE ?", "%#{sanitize_sql_like(params[:search])}%") if params[:search].present?
       query = query.where("account_entries.date >= ?", params[:start_date]) if params[:start_date].present?
       query = query.where("account_entries.date <= ?", params[:end_date]) if params[:end_date].present?
+
+      if params[:types].present?
+        query = query.where(marked_as_transfer: false) unless params[:types].include?("transfer")
+
+        if params[:types].include?("income") && !params[:types].include?("expense")
+          query = query.where("account_entries.amount < 0")
+        elsif params[:types].include?("expense") && !params[:types].include?("income")
+          query = query.where("account_entries.amount >= 0")
+        end
+      end
+
+      if params[:amount].present? && params[:amount_operator].present?
+        case params[:amount_operator]
+        when "equal"
+          query = query.where("ABS(ABS(account_entries.amount) - ?) <= 0.01", params[:amount].to_f.abs)
+        when "less"
+          query = query.where("ABS(account_entries.amount) < ?", params[:amount].to_f.abs)
+        when "greater"
+          query = query.where("ABS(account_entries.amount) > ?", params[:amount].to_f.abs)
+        end
+      end
 
       if params[:accounts].present? || params[:account_ids].present?
         query = query.joins(:account)
@@ -197,22 +222,5 @@ class Account::Entry < ApplicationRecord
         current: amount_money,
         previous: previous_entry&.amount_money,
         favorable_direction: account.favorable_direction
-    end
-
-    def trade_valid?
-      if account_trade.sell?
-        current_qty = account.holding_qty(account_trade.security)
-
-        if current_qty < account_trade.qty.abs
-          # i18n-tasks-use t('activerecord.errors.models.account/entry.attributes.base.invalid_sell_quantity')
-          errors.add(
-            :base,
-            :invalid_sell_quantity,
-            sell_qty: account_trade.qty.abs,
-            ticker: account_trade.security.ticker,
-            current_qty: current_qty
-          )
-        end
-      end
     end
 end

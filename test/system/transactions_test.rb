@@ -77,10 +77,11 @@ class TransactionsTest < ApplicationSystemTestCase
       fill_in "q_end_date", with: 1.day.ago.to_date
 
       click_button "Type"
-      assert_text "Filter by type coming soon..."
+      check("Income")
 
       click_button "Amount"
-      assert_text "Filter by amount coming soon..."
+      select "Less than"
+      fill_in "q_amount", with: 200
 
       click_button "Category"
       check(category.name)
@@ -102,6 +103,8 @@ class TransactionsTest < ApplicationSystemTestCase
       find("li", text: account.name).first("a").click
       find("li", text: "on or after #{10.days.ago.to_date}").first("a").click
       find("li", text: "on or before #{1.day.ago.to_date}").first("a").click
+      find("li", text: "Income").first("a").click
+      find("li", text: "less than 200").first("a").click
       find("li", text: category.name).first("a").click
       find("li", text: merchant.name).first("a").click
     end
@@ -148,6 +151,24 @@ class TransactionsTest < ApplicationSystemTestCase
 
     all_transactions_checkbox.uncheck
     assert_selection_count(0)
+  end
+
+
+  test "can create deposit transaction for investment account" do
+    investment_account = accounts(:investment)
+    transfer_date = Date.current
+    visit account_path(investment_account)
+    click_on "New transaction"
+    select "Deposit", from: "Type"
+    fill_in "Date", with: transfer_date
+    fill_in "account_entry[amount]", with: 175.25
+    click_button "Add transaction"
+    within "#account_" + investment_account.id do
+      click_on "Transactions"
+    end
+    within "#entry-group-" + transfer_date.to_s do
+      assert_text "175.25"
+    end
   end
 
   private

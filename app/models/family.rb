@@ -1,13 +1,18 @@
 class Family < ApplicationRecord
+  include Providable
+
   has_many :users, dependent: :destroy
   has_many :tags, dependent: :destroy
   has_many :accounts, dependent: :destroy
   has_many :institutions, dependent: :destroy
+  has_many :imports, dependent: :destroy
   has_many :transactions, through: :accounts
   has_many :entries, through: :accounts
-  has_many :imports, through: :accounts
   has_many :categories, dependent: :destroy
   has_many :merchants, dependent: :destroy
+  has_many :issues, through: :accounts
+
+  validates :locale, inclusion: { in: I18n.available_locales.map(&:to_s) }
 
   def snapshot(period = Period.all)
     query = accounts.active.joins(:balances)
@@ -45,7 +50,8 @@ class Family < ApplicationRecord
                       .where("account_entries.date <= ?", period.date_range.end)
                       .where("account_entries.marked_as_transfer = ?", false)
                       .where("account_entries.entryable_type = ?", "Account::Transaction")
-                      .group("id")
+                      .group("accounts.id")
+                      .having("SUM(ABS(account_entries.amount)) > 0")
                       .to_a
 
     results.each do |r|
@@ -116,5 +122,17 @@ class Family < ApplicationRecord
 
   def needs_sync?
     last_synced_at.nil? || last_synced_at.to_date < Date.current
+  end
+
+  def synth_usage
+    self.class.synth_provider&.usage
+  end
+
+  def subscribed?
+    stripe_subscription_status.present? && stripe_subscription_status == "active"
+  end
+
+  def primary_user
+    users.order(:created_at).first
   end
 end

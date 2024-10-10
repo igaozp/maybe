@@ -24,10 +24,11 @@ module Maybe
     # config.time_zone = "Central Time (US & Canada)"
     # config.eager_load_paths << Rails.root.join("extras")
 
-    config.action_mailer.default_options = { from: ENV["MAILER_SENDER"] }
-
     config.active_job.queue_adapter = :good_job
 
-    config.app_mode = (ENV["SELF_HOSTING_ENABLED"] == "true" ? "self_hosted" : "managed").inquiry
+    # TODO: This is here for incremental adoption of localization.  This can be removed when all translations are implemented.
+    config.i18n.fallbacks = true
+
+    config.app_mode = (ENV["SELF_HOSTED"] == "true" || ENV["SELF_HOSTING_ENABLED"] == "true" ? "self_hosted" : "managed").inquiry
   end
 end

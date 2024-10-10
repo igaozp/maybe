@@ -1,49 +1,26 @@
 Rails.application.routes.draw do
   mount GoodJob::Engine => "jobs"
 
-  get "changelog" => "pages#changelog", as: :changelog
-  get "feedback" => "pages#feedback", as: :feedback
-  get "invites" => "pages#invites", as: :invites
+  get "changelog", to: "pages#changelog"
+  get "feedback", to: "pages#feedback"
+  get "early-access", to: "pages#early_access"
 
   resource :registration
-  resource :session
+  resources :sessions, only: %i[new create destroy]
   resource :password_reset
   resource :password
-
-  namespace :help do
-    resources :articles, only: :show
-  end
 
   namespace :settings do
     resource :profile, only: %i[show update destroy]
     resource :preferences, only: %i[show update]
-    resource :notifications, only: %i[show update]
-    resource :billing, only: %i[show update]
-    resource :hosting, only: %i[show update] do
-      post :send_test_email, on: :collection
-    end
-    resource :security, only: %i[show update]
+    resource :hosting, only: %i[show update]
+    resource :billing, only: :show
   end
 
-  resources :imports, except: :show do
-    member do
-      get "load"
-      patch "load" => "imports#load_csv"
-      patch "upload" => "imports#upload_csv"
+  resource :subscription, only: %i[new show]
 
-      get "configure"
-      patch "configure" => "imports#update_mappings"
-
-      get "clean"
-      patch "clean" => "imports#update_csv"
-
-      get "confirm"
-      patch "confirm" => "imports#publish"
-    end
-  end
-
-  resources :tags, except: %i[ show destroy ] do
-    resources :deletions, only: %i[ new create ], module: :tag
+  resources :tags, except: %i[show destroy] do
+    resources :deletions, only: %i[new create], module: :tag
   end
 
   namespace :category do
@@ -51,17 +28,25 @@ Rails.application.routes.draw do
   end
 
   resources :categories do
-    resources :deletions, only: %i[ new create ], module: :category
+    resources :deletions, only: %i[new create], module: :category
   end
 
-  resources :merchants, only: %i[ index new create edit update destroy ]
+  resources :merchants, only: %i[index new create edit update destroy]
 
   namespace :account do
-    resources :transfers, only: %i[ new create destroy ]
+    resources :transfers, only: %i[new create destroy]
+  end
 
-    namespace :transaction do
-      resources :rules, only: %i[ index ]
-    end
+  resources :imports, only: %i[index new show create destroy] do
+    post :publish, on: :member
+
+    resource :upload, only: %i[show update], module: :import
+    resource :configuration, only: %i[show update], module: :import
+    resource :clean, only: :show, module: :import
+    resource :confirm, only: :show, module: :import
+
+    resources :rows, only: %i[show update], module: :import
+    resources :mappings, only: :update, module: :import
   end
 
   resources :accounts do
@@ -78,29 +63,42 @@ Rails.application.routes.draw do
     scope module: :account do
       resource :logo, only: :show
 
-      resources :holdings, only: %i[ index new show ]
+      resources :holdings, only: %i[index new show destroy]
       resources :cashes, only: :index
 
-      resources :transactions, only: %i[ index update ]
-      resources :valuations, only: %i[ index new create ]
-      resources :trades, only: %i[ index new create ]
+      resources :transactions, only: %i[index update]
+      resources :valuations, only: %i[index new create]
+      resources :trades, only: %i[index new create update]
 
-      resources :entries, only: %i[ edit update show destroy ]
+      resources :entries, only: %i[edit update show destroy]
     end
   end
 
-  resources :transactions, only: %i[ index new create ] do
+  resources :properties, only: %i[create update]
+  resources :vehicles, only: %i[create update]
+  resources :credit_cards, only: %i[create update]
+  resources :loans, only: %i[create update]
+
+  resources :transactions, only: %i[index new create] do
     collection do
       post "bulk_delete"
       get "bulk_edit"
       post "bulk_update"
       post "mark_transfers"
       post "unmark_transfers"
-      get "rules"
     end
   end
 
-  resources :institutions, except: %i[ index show ]
+  resources :institutions, except: %i[index show] do
+    post :sync, on: :member
+  end
+  resources :invite_codes, only: %i[index create]
+
+  resources :issues, only: :show
+
+  namespace :issue do
+    resources :exchange_rate_provider_missings, only: :update
+  end
 
   # For managing self-hosted upgrades and release notifications
   resources :upgrades, only: [] do
@@ -111,6 +109,9 @@ Rails.application.routes.draw do
   end
 
   resources :currencies, only: %i[show]
+
+  # Stripe webhook endpoint
+  post "webhooks/stripe", to: "webhooks#stripe"
 
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
   # Can be used by load balancers and uptime monitors to verify that the app is live.

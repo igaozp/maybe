@@ -2,7 +2,7 @@ class AccountsController < ApplicationController
   layout :with_sidebar
 
   include Filterable
-  before_action :set_account, only: %i[ edit show destroy sync update ]
+  before_action :set_account, only: %i[edit show destroy sync update]
 
   def index
     @institutions = Current.family.institutions
@@ -23,7 +23,12 @@ class AccountsController < ApplicationController
   end
 
   def new
-    @account = Account.new(accountable: Accountable.from_type(params[:type])&.new)
+    @account = Account.new(
+      accountable: Accountable.from_type(params[:type])&.new,
+      currency: Current.family.currency
+    )
+
+    @account.accountable.address = Address.new if @account.accountable.is_a?(Property)
 
     if params[:institution_id]
       @account.institution = Current.family.institutions.find_by(id: params[:institution_id])
@@ -36,14 +41,11 @@ class AccountsController < ApplicationController
   end
 
   def edit
+    @account.accountable.build_address if @account.accountable.is_a?(Property) && @account.accountable.address.blank?
   end
 
   def update
-    Account.transaction do
-      @account.update! account_params.except(:accountable_type, :balance)
-      @account.update_balance!(account_params[:balance]) if account_params[:balance]
-    end
-    @account.sync_later
+    @account.update_with_sync!(account_params)
     redirect_back_or_to account_path(@account), notice: t(".success")
   end
 
@@ -56,8 +58,6 @@ class AccountsController < ApplicationController
                         start_balance: account_params[:start_balance]
     @account.sync_later
     redirect_back_or_to account_path(@account), notice: t(".success")
-  rescue ActiveRecord::RecordInvalid => e
-    redirect_back_or_to accounts_path, alert: e.record.errors.full_messages.to_sentence
   end
 
   def destroy

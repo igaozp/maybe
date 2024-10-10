@@ -1,13 +1,24 @@
 <% content_for :sidebar do %>
   <%= render "settings/nav" %>
 <% end %>
+
 <div class="space-y-4">
   <h1 class="text-gray-900 text-xl font-medium mb-4"><%= t(".page_title") %></h1>
   <%= settings_section title: t(".general_title"), subtitle: t(".general_subtitle") do %>
     <div>
       <%= styled_form_with model: Current.user, url: settings_preferences_path, class: "space-y-4", data: { controller: "auto-submit-form" } do |form| %>
         <%= form.fields_for :family_attributes do |family_form| %>
-          <%= currency_select_full family_form, :currency, { label: "Currency", selected: Current.family.currency }, { data: { auto_submit_form_target: "auto" } } %>
+          <%= family_form.select :currency,
+            currencies_for_select.map { |currency| [ "#{currency.name} (#{currency.iso_code})", currency.iso_code ] },
+            { label: "Currency", selected: Current.family.currency },
+            { data: { auto_submit_form_target: "auto" } } %>
+
+          <%= family_form.select :locale,
+            I18n.available_locales,
+            { label: "Locale", selected: Current.family.locale },
+            { data: { auto_submit_form_target: "auto" } } %>
+
+          <p class="text-xs italic pl-2 text-gray-500">Please note, we are still working on translations for various languages.  Please see the <%= link_to "I18n issue", "https://github.com/maybe-finance/maybe/issues/1225", target: "_blank", class: "underline" %> for more information.</p>
         <% end %>
       <% end %>
     </div>
@@ -39,8 +50,6 @@
       <% end %>
     </div>
   <% end %>
-  <div class="flex justify-between gap-4">
-    <%= previous_setting("Account", settings_profile_path) %>
-    <%= next_setting("Notifications", settings_notifications_path) %>
-  </div>
+
+  <%= settings_nav_footer %>
 </div>

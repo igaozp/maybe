@@ -7,12 +7,18 @@ en:
       cancel: Cancel
       title: Are you sure?
     money_field:
-      money-label: Amount
+      label: Amount
     no_account_empty_state:
       new_account: New account
       no_account_subtitle: Since no accounts have been added, there's no data to display.
         Add your first accounts to start viewing dashboard data.
       no_account_title: No accounts yet
+    subscribe_prompt:
+      guarantee: We're reasonable people here. If you're not happy or something doesn't
+        work, we'll gladly refund you.
+      subscribe: Upgrade your account
+      subtitle: To continue using Maybe, please subscribe!
+      title: Upgrade
     upgrade_notification:
       app_upgraded: The app has been upgraded to %{version}.
       dismiss: Dismiss

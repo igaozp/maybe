@@ -1,16 +1,16 @@
 class TimeSeries
-  DIRECTIONS = %w[ up down ].freeze
+  DIRECTIONS = %w[up down].freeze
 
   attr_reader :values, :favorable_direction
 
-  def self.from_collection(collection, value_method)
+  def self.from_collection(collection, value_method, favorable_direction: "up")
     collection.map do |obj|
       {
         date: obj.date,
         value: obj.public_send(value_method),
         original: obj
       }
-    end.then { |data| new(data) }
+    end.then { |data| new(data, favorable_direction: favorable_direction) }
   end
 
   def initialize(data, favorable_direction: "up")
